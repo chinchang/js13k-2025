@@ -9,14 +9,15 @@ class Game {
         this.showingWarning = false;
         
         this.beatInterval = 1000; // 1 second = 60 BPM
-        this.perfectWindow = 120; // �120ms
-        this.goodWindow = 200; // �200ms
+        this.perfectWindow = 200; // ±200ms - more lenient
+        this.okayWindow = 350; // ±350ms - new middle tier
+        this.missWindow = 500; // ±500ms - anything beyond this is miss
         
         this.plankDecayRate = 6; // 6% per second
         this.plankGainPerfect = 12;
-        this.plankGainGood = 7;
+        this.plankGainOkay = 5; // new middle tier
         this.moveGainPerfect = 9;
-        this.moveGainGood = 5;
+        this.moveGainOkay = 3; // new middle tier
         this.unlockThreshold = 60;
         
         this.leftBeats = [];
@@ -118,7 +119,7 @@ class Game {
             if (beat.hit) continue;
             
             const distance = Math.abs(currentTime - beat.time);
-            if (distance < closestDistance && distance <= this.goodWindow) {
+            if (distance < closestDistance && distance <= this.missWindow) {
                 closestDistance = distance;
                 closestBeat = beat;
             }
@@ -136,7 +137,8 @@ class Game {
     
     getTimingRating(distance) {
         if (distance <= this.perfectWindow) return 'perfect';
-        if (distance <= this.goodWindow) return 'good';
+        if (distance <= this.okayWindow) return 'okay';
+        if (distance <= this.missWindow) return 'miss';
         return 'miss';
     }
     
@@ -147,11 +149,11 @@ class Game {
                 this.score += 20;
                 this.combo++;
                 this.flashTarget('left', 'perfect');
-            } else if (timing === 'good') {
-                this.plankPercent = Math.min(100, this.plankPercent + this.plankGainGood);
-                this.score += 10;
+            } else if (timing === 'okay') {
+                this.plankPercent = Math.min(100, this.plankPercent + this.plankGainOkay);
+                this.score += 5;
                 this.combo++;
-                this.flashTarget('left', 'good');
+                this.flashTarget('left', 'okay');
             } else {
                 this.combo = 0;
                 this.elements.leftLane.classList.add('shake');
@@ -164,11 +166,11 @@ class Game {
                 this.score += 20;
                 this.combo++;
                 this.flashTarget('right', 'perfect');
-            } else if (timing === 'good') {
-                this.catPosition = Math.min(100, this.catPosition + this.moveGainGood);
-                this.score += 10;
+            } else if (timing === 'okay') {
+                this.catPosition = Math.min(100, this.catPosition + this.moveGainOkay);
+                this.score += 5;
                 this.combo++;
-                this.flashTarget('right', 'good');
+                this.flashTarget('right', 'okay');
             } else {
                 this.combo = 0;
                 this.flashTarget('right', 'miss');
@@ -185,7 +187,7 @@ class Game {
             document.getElementById('left-target') : 
             document.getElementById('right-target');
         
-        target.classList.remove('flash-perfect', 'flash-good', 'flash-miss');
+        target.classList.remove('flash-perfect', 'flash-okay', 'flash-miss');
         target.classList.add(`flash-${timing}`);
         
         setTimeout(() => {
@@ -353,7 +355,7 @@ class Game {
         
         // Check left beats for misses
         this.leftBeats.forEach(beat => {
-            if (!beat.hit && !beat.processed && currentTime > beat.time + this.goodWindow) {
+            if (!beat.hit && !beat.processed && currentTime > beat.time + this.missWindow) {
                 beat.processed = true;
                 this.processBeatHit('left', 'miss');
             }
@@ -362,7 +364,7 @@ class Game {
         // Check right beats for misses (only if unlocked)
         if (this.rightLaneUnlocked) {
             this.rightBeats.forEach(beat => {
-                if (!beat.hit && !beat.processed && currentTime > beat.time + this.goodWindow) {
+                if (!beat.hit && !beat.processed && currentTime > beat.time + this.missWindow) {
                     beat.processed = true;
                     this.processBeatHit('right', 'miss');
                 }
