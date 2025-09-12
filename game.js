@@ -23,7 +23,7 @@ class Game {
         this.rightBeats = [];
         this.startTime = Date.now();
         this.lastDecayTime = this.startTime;
-        this.graceTime = 2000; // 2 second grace period before decay starts
+        this.graceTime = 6000; // 6 second grace period - 4s for first circle + 2s buffer
         
         this.elements = {
             scoreValue: document.getElementById('score-value'),
@@ -52,10 +52,11 @@ class Game {
     
     scheduleBeats() {
         const currentTime = Date.now() - this.startTime;
+        const startDelay = 4000; // Start beats 4 seconds in, when first visual appears
         
         // Schedule left beats (continuous A presses every 1s)
         for (let i = 0; i < 60; i++) {
-            const beatTime = i * this.beatInterval;
+            const beatTime = startDelay + (i * this.beatInterval);
             if (beatTime > currentTime - 1000) {
                 this.leftBeats.push({
                     time: beatTime,
@@ -69,7 +70,7 @@ class Game {
         
         // Schedule right beats (only when unlocked)
         for (let i = 0; i < 60; i++) {
-            const beatTime = i * this.beatInterval;
+            const beatTime = startDelay + (i * this.beatInterval);
             if (beatTime > currentTime - 1000) {
                 this.rightBeats.push({
                     time: beatTime,
