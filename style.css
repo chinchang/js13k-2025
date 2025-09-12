@@ -247,6 +247,36 @@ body {
     font-size: 36px;
 }
 
+.lane-feedback {
+    font-size: 24px;
+    font-weight: bold;
+    pointer-events: none;
+    animation: feedbackFloat 0.8s ease-out;
+}
+
+.lane-feedback.perfect {
+    color: #27ae60;
+}
+
+.lane-feedback.okay {
+    color: #3498db;
+}
+
+.lane-feedback.miss {
+    color: #e74c3c;
+}
+
+@keyframes feedbackFloat {
+    0% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0px);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-30px);
+    }
+}
+
 #gate-stable-banner {
     position: absolute;
     top: 30%;

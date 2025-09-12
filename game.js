@@ -14,10 +14,10 @@ class Game {
         this.missWindow = 500; // ±500ms - anything beyond this is miss
         
         this.plankDecayRate = 6; // 6% per second
-        this.plankGainPerfect = 12;
-        this.plankGainOkay = 5; // new middle tier
-        this.moveGainPerfect = 9;
-        this.moveGainOkay = 3; // new middle tier
+        this.plankGainPerfect = 15;
+        this.plankGainOkay = 8; // new middle tier
+        this.moveGainPerfect = 12;
+        this.moveGainOkay = 6; // new middle tier
         this.unlockThreshold = 60;
         
         this.leftBeats = [];
@@ -119,7 +119,7 @@ class Game {
             if (beat.hit) continue;
             
             const distance = Math.abs(currentTime - beat.time);
-            if (distance < closestDistance && distance <= this.missWindow) {
+            if (distance < closestDistance && distance <= this.okayWindow) {
                 closestDistance = distance;
                 closestBeat = beat;
             }
@@ -130,15 +130,13 @@ class Game {
             closestBeat.processed = true;
             const timing = this.getTimingRating(closestDistance);
             this.processBeatHit(lane, timing);
-        } else {
-            this.processBeatHit(lane, 'miss');
         }
+        // If no beat found within window, do nothing - let the circle pass naturally
     }
     
     getTimingRating(distance) {
         if (distance <= this.perfectWindow) return 'perfect';
         if (distance <= this.okayWindow) return 'okay';
-        if (distance <= this.missWindow) return 'miss';
         return 'miss';
     }
     
@@ -177,7 +175,7 @@ class Game {
             }
         }
         
-        this.showFeedback(timing);
+        this.showFeedback(timing, lane);
         this.updateDisplay();
         this.checkWinCondition();
     }
@@ -195,14 +193,47 @@ class Game {
         }, 200);
     }
     
-    showFeedback(timing) {
-        this.elements.feedback.textContent = timing.toUpperCase();
-        this.elements.feedback.className = `feedback ${timing}`;
+    showFeedback(timing, lane) {
+        // Create a temporary feedback element near the target
+        const feedbackEl = document.createElement('div');
+        feedbackEl.textContent = timing.toUpperCase();
+        feedbackEl.className = `lane-feedback ${timing}`;
+        
+        const targetEl = lane === 'left' ? 
+            document.getElementById('left-target') : 
+            document.getElementById('right-target');
+        
+        const laneEl = lane === 'left' ? 
+            document.getElementById('left-lane') : 
+            document.getElementById('right-lane');
+        
+        // Position it near the target
+        feedbackEl.style.position = 'absolute';
+        feedbackEl.style.bottom = '120px'; // Just above the target
+        feedbackEl.style.left = '50%';
+        feedbackEl.style.transform = 'translateX(-50%)';
+        feedbackEl.style.zIndex = '15';
+        
+        laneEl.appendChild(feedbackEl);
+        
+        // Remove after animation
+        setTimeout(() => {
+            if (feedbackEl.parentNode) {
+                feedbackEl.parentNode.removeChild(feedbackEl);
+            }
+        }, 800);
+    }
+    
+    showWarning(message) {
+        this.elements.feedback.textContent = message;
+        this.elements.feedback.className = 'feedback';
+        this.elements.feedback.style.color = '#f39c12';
+        this.elements.feedback.style.fontSize = '36px';
         this.elements.feedback.style.opacity = '1';
         
         setTimeout(() => {
             this.elements.feedback.style.opacity = '0';
-        }, 500);
+        }, 1000);
     }
     
     updateDisplay() {
@@ -222,7 +253,7 @@ class Game {
         if (this.plankPercent < 25 && this.plankPercent > 0) {
             if (!this.showingWarning) {
                 this.showingWarning = true;
-                this.showFeedback('GATE DROPPING!');
+                this.showWarning('GATE DROPPING!');
                 setTimeout(() => { this.showingWarning = false; }, 1000);
             }
         }
@@ -353,9 +384,9 @@ class Game {
     checkMissedBeats() {
         const currentTime = Date.now() - this.startTime;
         
-        // Check left beats for misses
+        // Check left beats for misses - only after okay window has passed
         this.leftBeats.forEach(beat => {
-            if (!beat.hit && !beat.processed && currentTime > beat.time + this.missWindow) {
+            if (!beat.hit && !beat.processed && currentTime > beat.time + this.okayWindow) {
                 beat.processed = true;
                 this.processBeatHit('left', 'miss');
             }
@@ -364,7 +395,7 @@ class Game {
         // Check right beats for misses (only if unlocked)
         if (this.rightLaneUnlocked) {
             this.rightBeats.forEach(beat => {
-                if (!beat.hit && !beat.processed && currentTime > beat.time + this.missWindow) {
+                if (!beat.hit && !beat.processed && currentTime > beat.time + this.okayWindow) {
                     beat.processed = true;
                     this.processBeatHit('right', 'miss');
                 }

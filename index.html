@@ -1,59 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Black Cat's Passage</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
     <div id="game-container">
-        <div id="hud">
-            <div id="score">Score: <span id="score-value">0</span></div>
-            <div id="level">Level: 1</div>
-            <div id="bpm">BPM: 60</div>
+      <div id="hud">
+        <div id="score">Score: <span id="score-value">0</span></div>
+        <div id="level">Level: 1</div>
+        <div id="bpm">BPM: 60</div>
+      </div>
+
+      <div id="game-area">
+        <div id="left-lane" class="lane">
+          <div id="left-prompt" class="prompt">Press A</div>
+          <div id="left-target" class="target-circle"></div>
+          <div id="left-notes" class="notes"></div>
         </div>
-        
-        <div id="game-area">
-            <div id="left-lane" class="lane">
-                <div id="left-prompt" class="prompt">Press A</div>
-                <div id="left-target" class="target-circle"></div>
-                <div id="left-notes" class="notes"></div>
+
+        <div id="center-area">
+          <div id="plank-container">
+            <div id="plank-label">Gate: <span id="plank-percent">0</span>%</div>
+            <div id="plank-bar">
+              <div id="plank-fill"></div>
             </div>
-            
-            <div id="center-area">
-                <div id="plank-container">
-                    <div id="plank-label">Gate: <span id="plank-percent">0</span>%</div>
-                    <div id="plank-bar">
-                        <div id="plank-fill"></div>
-                    </div>
-                </div>
-                
-                <div id="cat-area">
-                    <div id="cat">=1</div>
-                    <div id="cat-platform"></div>
-                </div>
-                
-                <div id="door">
-                    <div id="door-sign">EXIT</div>
-                </div>
-            </div>
-            
-            <div id="right-lane" class="lane hidden">
-                <div id="right-prompt" class="prompt">Press L</div>
-                <div id="right-target" class="target-circle"></div>
-                <div id="right-notes" class="notes"></div>
-            </div>
+          </div>
+
+          <div id="cat-area">
+            <div id="cat">😺</div>
+            <div id="cat-platform"></div>
+          </div>
+
+          <div id="door">
+            <div id="door-sign">EXIT</div>
+          </div>
         </div>
-        
-        <div id="feedback"></div>
-        <div id="gate-stable-banner" class="hidden">GATE STABLE  ADVANCE!</div>
-        <div id="game-over" class="hidden">
-            <h2 id="game-result"></h2>
-            <p>Press R to restart</p>
+
+        <div id="right-lane" class="lane hidden">
+          <div id="right-prompt" class="prompt">Press L</div>
+          <div id="right-target" class="target-circle"></div>
+          <div id="right-notes" class="notes"></div>
         </div>
+      </div>
+
+      <div id="feedback"></div>
+      <div id="gate-stable-banner" class="hidden">GATE STABLE  ADVANCE!</div>
+      <div id="game-over" class="hidden">
+        <h2 id="game-result"></h2>
+        <p>Press R to restart</p>
+      </div>
     </div>
-    
+
     <script src="game.js"></script>
-</body>
+  </body>
 </html>
