@@ -30,6 +30,7 @@ class Game {
             scoreValue: document.getElementById('score-value'),
             plankPercent: document.getElementById('plank-percent'),
             plankFill: document.getElementById('plank-fill'),
+            gatePlank: document.getElementById('gate-plank'),
             cat: document.getElementById('cat'),
             door: document.getElementById('door'),
             leftLane: document.getElementById('left-lane'),
@@ -154,9 +155,7 @@ class Game {
                 this.flashTarget('left', 'okay');
             } else {
                 this.combo = 0;
-                this.elements.leftLane.classList.add('shake');
                 this.flashTarget('left', 'miss');
-                setTimeout(() => this.elements.leftLane.classList.remove('shake'), 300);
             }
         } else if (lane === 'right') {
             if (timing === 'perfect') {
@@ -241,13 +240,16 @@ class Game {
         this.elements.plankPercent.textContent = Math.floor(this.plankPercent);
         this.elements.plankFill.style.width = this.plankPercent + '%';
         
-        // Update plank color
+        // Update plank color and visual gate
         this.elements.plankFill.className = '';
         if (this.plankPercent >= 60) {
             this.elements.plankFill.classList.add('green');
         } else if (this.plankPercent >= 20) {
             this.elements.plankFill.classList.add('amber');
         }
+        
+        // Update visual gate plank height
+        this.elements.gatePlank.style.height = this.plankPercent + '%';
         
         // Show warning if plank is low
         if (this.plankPercent < 25 && this.plankPercent > 0) {
@@ -258,8 +260,19 @@ class Game {
             }
         }
         
-        // Update cat position
-        this.elements.cat.style.left = this.catPosition + '%';
+        // Update cat position - move smoothly across the entire game scene
+        // Position cat relative to the game scene container (0% = left edge, 100% = right edge)
+        const gameScene = document.getElementById('game-scene');
+        if (this.elements.cat.parentElement !== gameScene) {
+            gameScene.appendChild(this.elements.cat);
+        }
+        
+        // Cat moves continuously across the 500px wide game scene
+        const sceneWidth = 500; // matches CSS width
+        const catOffset = (this.catPosition / 100) * (sceneWidth - 40); // -40 to account for cat width
+        this.elements.cat.style.left = catOffset + 'px';
+        this.elements.cat.style.position = 'absolute';
+        this.elements.cat.style.bottom = '50px';
         
         // Check right lane unlock
         if (!this.rightLaneUnlocked && this.plankPercent >= this.unlockThreshold) {
@@ -376,6 +389,15 @@ class Game {
         this.elements.door.classList.remove('glowing');
         this.elements.leftNotes.innerHTML = '';
         this.elements.rightNotes.innerHTML = '';
+        
+        // Reset cat to start position in game scene
+        const gameScene = document.getElementById('game-scene');
+        if (this.elements.cat.parentElement !== gameScene) {
+            gameScene.appendChild(this.elements.cat);
+        }
+        this.elements.cat.style.left = '0px';
+        this.elements.cat.style.position = 'absolute';
+        this.elements.cat.style.bottom = '50px';
         
         this.scheduleBeats();
         this.updateDisplay();
