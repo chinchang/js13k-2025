@@ -8,7 +8,78 @@ class Game {
     this.rightLaneUnlocked = false;
     this.showingWarning = false;
 
-    this.beatInterval = 2000; // 2 seconds = 30 BPM
+    // Level system
+    this.currentLevel = 3;
+    this.levels = [
+      {
+        id: 1,
+        name: "Level 1 - Basic Rhythm",
+        beatInterval: 2000, // 2 seconds between notes
+        leftPattern: {
+          keys: ["A"], // Cycle through these keys
+          startDelay: 4000, // When first note appears
+          offset: 0, // No additional offset
+        },
+        rightPattern: {
+          keys: ["L"], // Cycle through these keys
+          startDelay: 4000, // When first note appears
+          offset: 0, // No additional offset
+        },
+        duration: 60000, // 60 seconds
+      },
+      {
+        id: 2,
+        name: "Level 2 - Offset Challenge",
+        beatInterval: 2000, // 2 seconds between notes
+        leftPattern: {
+          keys: ["A"],
+          startDelay: 4000,
+          offset: 0, // Left starts immediately
+        },
+        rightPattern: {
+          keys: ["L"],
+          startDelay: 4000,
+          offset: 1000, // Right starts 1 second after left
+        },
+        duration: 60000, // 60 seconds
+      },
+      {
+        id: 3,
+        name: "Level 3 - Dual Keys",
+        beatInterval: 2000, // 2 seconds between notes
+        leftPattern: {
+          keys: ["A", "S"], // Alternates between A and S
+          startDelay: 4000,
+          offset: 0,
+        },
+        rightPattern: {
+          keys: ["L"],
+          startDelay: 4000,
+          offset: 0,
+        },
+        duration: 60000, // 60 seconds
+      },
+      {
+        id: 4,
+        name: "Level 4 - Fast Offset",
+        beatInterval: 1000, // 1 second between notes (faster!)
+        leftPattern: {
+          keys: ["A"],
+          startDelay: 4000,
+          offset: 0, // Left starts immediately
+        },
+        rightPattern: {
+          keys: ["L"],
+          startDelay: 4000,
+          offset: 500, // Right starts 1 second after left
+        },
+        duration: 60000, // 60 seconds
+      },
+    ];
+
+    // Current level configuration
+    this.levelConfig = this.levels[this.currentLevel];
+    this.beatInterval = this.levelConfig.beatInterval;
 
     // Overlap-based detection thresholds (percentage overlap)
     this.perfectOverlap = 60; // 60% overlap for perfect hit (easier)
@@ -31,6 +102,7 @@ class Game {
     this.rightBeats = [];
     this.startTime = Date.now();
     this.lastDecayTime = this.startTime;
+    this.levelStartTime = this.startTime;
     this.graceTime = 6000; // 6 second grace period - 4s for first circle + 2s buffer
 
     this.elements = {
@@ -131,15 +203,21 @@ class Game {
 
   scheduleBeats() {
     const currentTime = Date.now() - this.startTime;
-    const startDelay = 4000; // Start beats 4 seconds in, when first visual appears
+    const level = this.levelConfig;
 
-    // Schedule left beats (continuous A presses every 1s)
-    for (let i = 0; i < 60; i++) {
-      const beatTime = startDelay + i * this.beatInterval;
+    // Calculate how many beats fit in the level duration
+    const maxBeats = Math.ceil(level.duration / level.beatInterval) + 5; // +5 buffer
+
+    // Schedule left beats using level pattern
+    const leftPattern = level.leftPattern;
+    for (let i = 0; i < maxBeats; i++) {
+      const beatTime =
+        leftPattern.startDelay + leftPattern.offset + i * level.beatInterval;
       if (beatTime > currentTime - 1000) {
+        const keyIndex = i % leftPattern.keys.length;
         this.leftBeats.push({
           time: beatTime,
-          key: "A",
+          key: leftPattern.keys[keyIndex],
           hit: false,
           spawned: false,
           processed: false,
@@ -147,13 +225,16 @@ class Game {
       }
     }
 
-    // Schedule right beats (only when unlocked)
-    for (let i = 0; i < 60; i++) {
-      const beatTime = startDelay + i * this.beatInterval;
+    // Schedule right beats using level pattern
+    const rightPattern = level.rightPattern;
+    for (let i = 0; i < maxBeats; i++) {
+      const beatTime =
+        rightPattern.startDelay + rightPattern.offset + i * level.beatInterval;
       if (beatTime > currentTime - 1000) {
+        const keyIndex = i % rightPattern.keys.length;
         this.rightBeats.push({
           time: beatTime,
-          key: "L",
+          key: rightPattern.keys[keyIndex],
           hit: false,
           spawned: false,
           processed: false,
@@ -177,17 +258,31 @@ class Game {
       }
 
       const key = e.key.toLowerCase();
-      if (key === "a") {
-        this.handleHit("left");
-      } else if (key === "l") {
-        this.handleHit("right");
-      } else if (key === "r") {
+
+      // Check if key matches any left pattern keys
+      const leftKeys = this.levelConfig.leftPattern.keys.map((k) =>
+        k.toLowerCase()
+      );
+      if (leftKeys.includes(key)) {
+        this.handleHit("left", key);
+      }
+
+      // Check if key matches any right pattern keys
+      const rightKeys = this.levelConfig.rightPattern.keys.map((k) =>
+        k.toLowerCase()
+      );
+      if (rightKeys.includes(key)) {
+        this.handleHit("right", key);
+      }
+
+      // Restart key
+      if (key === "r") {
         this.restart();
       }
     });
   }
 
-  handleHit(lane) {
+  handleHit(lane, pressedKey) {
     const beats = lane === "left" ? this.leftBeats : this.rightBeats;
 
     if (lane === "right" && !this.rightLaneUnlocked) {
@@ -197,9 +292,14 @@ class Game {
     let bestBeat = null;
     let bestOverlap = 0;
 
-    // Find the beat with the highest overlap that hasn't been hit
+    // Find the beat with the highest overlap that hasn't been hit AND matches the pressed key
     for (const beat of beats) {
       if (beat.hit || !beat.spawned) continue;
+
+      // Check if the pressed key matches this beat's required key
+      if (beat.key.toLowerCase() !== pressedKey.toLowerCase()) {
+        continue; // Skip this beat if key doesn't match
+      }
 
       const notePos = this.calculateNotePosition(beat);
       const overlap = this.calculateOverlap(notePos, lane);
@@ -211,7 +311,9 @@ class Game {
       }
     }
 
-    console.log(`Best overlap for ${lane} lane: ${bestOverlap}%`);
+    console.log(
+      `Best overlap for ${lane} lane (key: ${pressedKey}): ${bestOverlap}%`
+    );
 
     if (bestBeat && bestOverlap > 0) {
       bestBeat.hit = true;
@@ -222,7 +324,7 @@ class Game {
       this.updateCircleAppearance(bestBeat, timing);
       this.playHitSound(timing);
     }
-    // If no beat found with sufficient overlap, do nothing
+    // If no beat found with sufficient overlap or wrong key, do nothing
   }
 
   calculateNotePosition(beat) {
@@ -520,13 +622,78 @@ class Game {
 
   checkWinCondition() {
     if (this.catPosition >= 100 && this.plankPercent >= this.unlockThreshold) {
-      this.gameOver(true);
+      this.levelComplete();
     }
   }
 
-  gameOver(won) {
+  checkLevelTimeout() {
+    const currentTime = Date.now();
+    const levelElapsed = currentTime - this.levelStartTime;
+
+    if (levelElapsed >= this.levelConfig.duration) {
+      // Level time expired - fail condition
+      this.gameOver(false, "Time's up!");
+    }
+  }
+
+  levelComplete() {
+    if (this.currentLevel < this.levels.length - 1) {
+      // Advance to next level
+      this.nextLevel();
+    } else {
+      // Game complete - all levels finished
+      this.gameOver(true, "All levels complete!");
+    }
+  }
+
+  nextLevel() {
+    this.currentLevel++;
+    this.levelConfig = this.levels[this.currentLevel];
+    this.beatInterval = this.levelConfig.beatInterval;
+
+    // Reset level-specific state
+    this.leftBeats = [];
+    this.rightBeats = [];
+    this.levelStartTime = Date.now();
+    this.startTime = this.levelStartTime;
+    this.lastDecayTime = this.levelStartTime;
+
+    // Clear existing notes
+    this.elements.leftNotes.innerHTML = "";
+    this.elements.rightNotes.innerHTML = "";
+
+    // Reset progress but keep score
+    this.catPosition = 0;
+    this.plankPercent = 20;
+    this.combo = 0;
+    this.rightLaneUnlocked = false;
+    this.elements.rightLane.classList.add("hidden");
+
+    // Schedule new beats
+    this.scheduleBeats();
+    this.updateDisplay();
+
+    // Show level indicator
+    this.showLevelStart();
+  }
+
+  showLevelStart() {
+    const feedback = this.elements.feedback;
+    feedback.textContent = this.levelConfig.name;
+    feedback.className = "feedback";
+    feedback.style.color = "#27ae60";
+    feedback.style.fontSize = "28px";
+    feedback.style.opacity = "1";
+
+    setTimeout(() => {
+      feedback.style.opacity = "0";
+    }, 3000);
+  }
+
+  gameOver(won, message = null) {
     this.gameState = "gameOver";
-    this.elements.gameResult.textContent = won ? "YOU WIN!" : "GAME OVER";
+    const resultText = message || (won ? "YOU WIN!" : "GAME OVER");
+    this.elements.gameResult.textContent = resultText;
     this.elements.gameOver.classList.remove("hidden");
 
     if (won) {
@@ -543,8 +710,15 @@ class Game {
     this.combo = 0;
     this.rightLaneUnlocked = false;
     this.showingWarning = false;
+
+    // Reset to first level
+    this.currentLevel = 0;
+    this.levelConfig = this.levels[this.currentLevel];
+    this.beatInterval = this.levelConfig.beatInterval;
+
     this.startTime = Date.now();
     this.lastDecayTime = this.startTime;
+    this.levelStartTime = this.startTime;
 
     this.leftBeats = [];
     this.rightBeats = [];
@@ -567,6 +741,7 @@ class Game {
 
     this.scheduleBeats();
     this.updateDisplay();
+    this.showLevelStart();
   }
 
   updateCircleAppearance(beat, timing) {
@@ -650,6 +825,7 @@ class Game {
       this.updatePlankDecay();
       this.spawnVisualNotes();
       this.checkMissedBeats();
+      this.checkLevelTimeout();
       this.updateDisplay();
     }
 
