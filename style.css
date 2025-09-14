@@ -131,7 +131,40 @@ body {
 
 @keyframes circleScroll {
     from { top: -50px; }
-    to { top: calc(100% - 130px); }
+    to { top: calc(100% + 50px); }
+}
+
+.note-circle.hit-perfect {
+    background: #27ae60 !important;
+    box-shadow: 0 0 15px #27ae60;
+    animation: circleScroll 4s linear !important; /* Ensure animation continues */
+}
+
+.note-circle.hit-okay {
+    background: #3498db !important;
+    box-shadow: 0 0 12px #3498db;
+    animation: circleScroll 4s linear !important; /* Ensure animation continues */
+}
+
+.note-circle.hit-miss {
+    background: #e74c3c !important;
+    box-shadow: 0 0 10px #e74c3c;
+    animation: circleScroll 4s linear !important; /* Ensure animation continues */
+}
+
+.note-circle.fading-out {
+    animation: fadeOut 1s ease-out forwards, circleScroll 4s linear;
+}
+
+@keyframes fadeOut {
+    from { 
+        opacity: 1; 
+        transform: translateX(-50%) scale(1);
+    }
+    to { 
+        opacity: 0; 
+        transform: translateX(-50%) scale(0.8);
+    }
 }
 
 #center-area {

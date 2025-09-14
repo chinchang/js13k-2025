@@ -8,10 +8,17 @@ class Game {
         this.rightLaneUnlocked = false;
         this.showingWarning = false;
         
-        this.beatInterval = 1000; // 1 second = 60 BPM
-        this.perfectWindow = 200; // ±200ms - more lenient
-        this.okayWindow = 350; // ±350ms - new middle tier
-        this.missWindow = 500; // ±500ms - anything beyond this is miss
+        this.beatInterval = 2000; // 2 seconds = 30 BPM
+        
+        // Overlap-based detection thresholds (percentage overlap)
+        this.perfectOverlap = 50; // 50% overlap for perfect hit
+        this.okayOverlap = 25;    // 25% overlap for okay hit
+        
+        // Visual dimensions for overlap calculation
+        this.targetCircleSize = 60;
+        this.noteCircleSize = 50;
+        this.targetPosition = 80; // bottom: 80px from CSS
+        this.laneHeight = 400;
         
         this.plankDecayRate = 6; // 6% per second
         this.plankGainPerfect = 15;
@@ -106,38 +113,83 @@ class Game {
     }
     
     handleHit(lane) {
-        const currentTime = Date.now() - this.startTime;
         const beats = lane === 'left' ? this.leftBeats : this.rightBeats;
         
         if (lane === 'right' && !this.rightLaneUnlocked) {
             return; // Can't hit right lane until unlocked
         }
         
-        let closestBeat = null;
-        let closestDistance = Infinity;
+        let bestBeat = null;
+        let bestOverlap = 0;
         
+        // Find the beat with the highest overlap that hasn't been hit
         for (const beat of beats) {
-            if (beat.hit) continue;
+            if (beat.hit || !beat.spawned) continue;
             
-            const distance = Math.abs(currentTime - beat.time);
-            if (distance < closestDistance && distance <= this.okayWindow) {
-                closestDistance = distance;
-                closestBeat = beat;
+            const notePos = this.calculateNotePosition(beat);
+            const overlap = this.calculateOverlap(notePos);
+            
+            // Only consider beats with meaningful overlap (at least 20%)
+            if (overlap >= 20 && overlap > bestOverlap) {
+                bestOverlap = overlap;
+                bestBeat = beat;
             }
         }
         
-        if (closestBeat) {
-            closestBeat.hit = true;
-            closestBeat.processed = true;
-            const timing = this.getTimingRating(closestDistance);
+        if (bestBeat && bestOverlap > 0) {
+            bestBeat.hit = true;
+            bestBeat.processed = true;
+            const timing = this.getOverlapRating(bestOverlap);
+            bestBeat.hitTiming = timing;
             this.processBeatHit(lane, timing);
+            this.updateCircleAppearance(bestBeat, timing);
         }
-        // If no beat found within window, do nothing - let the circle pass naturally
+        // If no beat found with sufficient overlap, do nothing
     }
     
-    getTimingRating(distance) {
-        if (distance <= this.perfectWindow) return 'perfect';
-        if (distance <= this.okayWindow) return 'okay';
+    calculateNotePosition(beat) {
+        const currentTime = Date.now() - this.startTime;
+        const elapsed = currentTime - (beat.time - 4000); // 4000ms animation duration
+        const progress = Math.max(0, Math.min(1, elapsed / 4000)); // 0 to 1
+        
+        // Calculate position: from top: -50px to bottom of lane + 50px
+        const startPos = -50;
+        const endPos = this.laneHeight + 50;
+        const currentPos = startPos + (progress * (endPos - startPos));
+        
+        return currentPos;
+    }
+    
+    calculateOverlap(notePos) {
+        // Target is at bottom: 80px, which means top of target is at (laneHeight - 80px)
+        const targetTop = this.laneHeight - this.targetPosition - this.targetCircleSize;
+        const targetCenter = targetTop + (this.targetCircleSize / 2);
+        
+        // Note circle position (notePos is the top of the circle)
+        const noteCenter = notePos + (this.noteCircleSize / 2);
+        
+        // Calculate vertical overlap using circle centers and radii
+        const targetRadius = this.targetCircleSize / 2;
+        const noteRadius = this.noteCircleSize / 2;
+        const centerDistance = Math.abs(targetCenter - noteCenter);
+        const maxDistance = targetRadius + noteRadius;
+        
+        if (centerDistance >= maxDistance) {
+            return 0; // No overlap
+        }
+        
+        // Calculate overlap percentage based on how close centers are
+        const overlapDistance = maxDistance - centerDistance;
+        const maxOverlap = Math.min(targetRadius * 2, noteRadius * 2);
+        const overlapPercent = (overlapDistance / maxOverlap) * 100;
+        
+        
+        return overlapPercent;
+    }
+    
+    getOverlapRating(overlapPercent) {
+        if (overlapPercent >= this.perfectOverlap) return 'perfect';
+        if (overlapPercent >= this.okayOverlap) return 'okay';
         return 'miss';
     }
     
@@ -198,9 +250,6 @@ class Game {
         feedbackEl.textContent = timing.toUpperCase();
         feedbackEl.className = `lane-feedback ${timing}`;
         
-        const targetEl = lane === 'left' ? 
-            document.getElementById('left-target') : 
-            document.getElementById('right-target');
         
         const laneEl = lane === 'left' ? 
             document.getElementById('left-lane') : 
@@ -300,7 +349,7 @@ class Game {
         this.leftBeats.forEach(beat => {
             if (!beat.spawned && currentTime >= beat.time - spawnTime && currentTime < beat.time - spawnTime + 100) {
                 beat.spawned = true;
-                this.createNoteElement('left', beat.key);
+                this.createNoteElement('left', beat.key, beat);
             }
         });
         
@@ -309,13 +358,13 @@ class Game {
             this.rightBeats.forEach(beat => {
                 if (!beat.spawned && currentTime >= beat.time - spawnTime && currentTime < beat.time - spawnTime + 100) {
                     beat.spawned = true;
-                    this.createNoteElement('right', beat.key);
+                    this.createNoteElement('right', beat.key, beat);
                 }
             });
         }
     }
     
-    createNoteElement(lane, key, delay) {
+    createNoteElement(lane, key, beat) {
         const noteEl = document.createElement('div');
         noteEl.className = 'note-circle';
         noteEl.textContent = key;
@@ -323,12 +372,22 @@ class Game {
         const container = lane === 'left' ? this.elements.leftNotes : this.elements.rightNotes;
         container.appendChild(noteEl);
         
-        // Remove the circle after animation completes
+        // Force animation to start immediately by setting initial position
+        noteEl.style.top = '-50px';
+        noteEl.style.animationDelay = '0s';
+        noteEl.style.animationPlayState = 'running';
+        
+        // Store reference to beat data for later updates
+        if (beat) {
+            beat.noteElement = noteEl;
+        }
+        
+        // Remove the circle after extended animation (6 seconds total now)
         setTimeout(() => {
             if (noteEl.parentNode) {
                 noteEl.parentNode.removeChild(noteEl);
             }
-        }, 4000);
+        }, 6000);
     }
     
     updatePlankDecay() {
@@ -403,23 +462,61 @@ class Game {
         this.updateDisplay();
     }
     
+    updateCircleAppearance(beat, timing) {
+        if (beat.noteElement) {
+            const circle = beat.noteElement;
+            
+            // Remove existing hit classes
+            circle.classList.remove('hit-perfect', 'hit-okay', 'hit-miss');
+            
+            // Add the appropriate hit class - preserve existing animation
+            circle.classList.add(`hit-${timing}`);
+            
+            // Make sure the circle animation continues uninterrupted
+            const currentTime = Date.now() - this.startTime;
+            const elapsed = currentTime - (beat.time - 4000);
+            const remainingTime = Math.max(100, 4000 - elapsed);
+            
+            // Start fade out near the end of the animation
+            setTimeout(() => {
+                if (circle.parentNode) {
+                    circle.classList.add('fading-out');
+                }
+            }, Math.max(1000, remainingTime - 1000));
+        }
+    }
+    
     checkMissedBeats() {
-        const currentTime = Date.now() - this.startTime;
-        
-        // Check left beats for misses - only after okay window has passed
+        // Check left beats for misses - when circle has passed the target area
         this.leftBeats.forEach(beat => {
-            if (!beat.hit && !beat.processed && currentTime > beat.time + this.okayWindow) {
-                beat.processed = true;
-                this.processBeatHit('left', 'miss');
+            if (!beat.hit && !beat.processed && beat.spawned) {
+                const notePos = this.calculateNotePosition(beat);
+                const targetBottom = this.laneHeight - this.targetPosition;
+                
+                // If note has passed well beyond the target, it's a miss
+                if (notePos > targetBottom + this.noteCircleSize + 20) {
+                    beat.processed = true;
+                    beat.hitTiming = 'miss';
+                    this.processBeatHit('left', 'miss');
+                    this.updateCircleAppearance(beat, 'miss');
+                }
             }
         });
         
         // Check right beats for misses (only if unlocked)
         if (this.rightLaneUnlocked) {
             this.rightBeats.forEach(beat => {
-                if (!beat.hit && !beat.processed && currentTime > beat.time + this.okayWindow) {
-                    beat.processed = true;
-                    this.processBeatHit('right', 'miss');
+                if (!beat.hit && !beat.processed && beat.spawned) {
+                    const notePos = this.calculateNotePosition(beat);
+                    const targetBottom = this.laneHeight - this.targetPosition;
+                    
+                    // If note has passed well beyond the target, it's a miss
+                    if (notePos > targetBottom + this.noteCircleSize + 20) {
+                        beat.processed = true;
+                        beat.hitTiming = 'miss';
+                        this.processBeatHit('right', 'miss');
+                        this.updateCircleAppearance(beat, 'miss');
+                    }
                 }
             });
         }
