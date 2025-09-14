@@ -826,18 +826,30 @@ class Game {
       // Add the appropriate hit class - preserve existing animation
       circle.classList.add(`hit-${timing}`);
 
-      // Make sure the circle animation continues uninterrupted
-      const currentTime = Date.now() - this.startTime;
-      const elapsed = currentTime - (beat.time - 4000);
-      const remainingTime = Math.max(100, 4000 - elapsed);
-
-      // Start fade out near the end of the animation
-      setTimeout(() => {
-        if (circle.parentNode) {
-          circle.classList.add("fading-out");
-        }
-      }, Math.max(1000, remainingTime - 1000));
+      // Start monitoring for fade-out when circle passes target
+      this.scheduleCircleFadeOut(beat);
     }
+  }
+
+  scheduleCircleFadeOut(beat) {
+    if (!beat.noteElement) return;
+    
+    // Simple approach: fade out after a fixed delay based on when the circle would naturally pass the target
+    // Since circles take 4 seconds to complete their journey, and targets are at bottom 100px,
+    // circles should pass targets around 3.2-3.5 seconds into their animation
+    
+    const currentTime = Date.now() - this.startTime;
+    const circleStartTime = beat.time - 4000; // Circle spawned 4s before its beat time
+    const elapsedSinceSpawn = currentTime - circleStartTime;
+    
+    // Calculate when to start fading (when circle passes target + 50px buffer)
+    const fadeStartTime = Math.max(100, 3200 - elapsedSinceSpawn); // 3.2s after spawn
+    
+    setTimeout(() => {
+      if (beat.noteElement && beat.noteElement.parentNode) {
+        beat.noteElement.classList.add('fading-out');
+      }
+    }, fadeStartTime);
   }
 
   checkMissedBeats() {

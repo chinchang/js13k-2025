@@ -184,18 +184,9 @@ body {
 }
 
 .note-circle.fading-out {
-  animation: fadeOut 1s ease-out forwards, circleScroll 4s linear;
-}
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(-50%) scale(0.6);
-  }
+  opacity: 0;
+  transform: translateX(-50%) scale(0.6);
+  transition: opacity 1s ease-out, transform 1s ease-out;
 }
 
 #center-area {
@@ -241,7 +232,7 @@ body {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 20px;
   overflow: hidden;
-  border: 2px solid rgba(255, 255, 255, 0.2);
+  border: 4px solid rgba(255, 255, 255, 0.2);
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
