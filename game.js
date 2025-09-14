@@ -126,6 +126,11 @@ class Game {
     this.initAudio();
 
     this.init();
+    
+    // Show initial level start after a brief delay to ensure audio context is ready
+    setTimeout(() => {
+      this.showLevelStart();
+    }, 500);
   }
 
   initAudio() {
@@ -193,6 +198,55 @@ class Game {
         this.playTone(262, 0.15, "sawtooth");
         break;
     }
+  }
+
+  playLevelStartSound() {
+    if (!this.audioContext) return;
+
+    // Create an uplifting harmonic progression: C4 -> E4 -> G4 -> C5
+    const progression = [
+      { freq: 261.63, delay: 0 },    // C4
+      { freq: 329.63, delay: 0.15 }, // E4
+      { freq: 392.00, delay: 0.3 },  // G4
+      { freq: 523.25, delay: 0.45 }  // C5 (octave)
+    ];
+
+    progression.forEach(note => {
+      setTimeout(() => {
+        if (this.audioContext) {
+          // Create a warm, welcoming tone with slight reverb effect
+          const oscillator = this.audioContext.createOscillator();
+          const gainNode = this.audioContext.createGain();
+          const filter = this.audioContext.createBiquadFilter();
+          
+          // Audio graph: oscillator -> filter -> gain -> destination
+          oscillator.connect(filter);
+          filter.connect(gainNode);
+          gainNode.connect(this.audioContext.destination);
+          
+          // Configure oscillator - use triangle wave for warmth
+          oscillator.frequency.setValueAtTime(note.freq, this.audioContext.currentTime);
+          oscillator.type = "triangle";
+          
+          // Configure low-pass filter for warmth
+          filter.type = "lowpass";
+          filter.frequency.setValueAtTime(2000, this.audioContext.currentTime);
+          filter.Q.setValueAtTime(1, this.audioContext.currentTime);
+          
+          // Configure gain with gentle attack and release
+          const currentTime = this.audioContext.currentTime;
+          const duration = 0.8;
+          gainNode.gain.setValueAtTime(0, currentTime);
+          gainNode.gain.linearRampToValueAtTime(this.masterVolume * 0.4, currentTime + 0.05); // Gentle attack
+          gainNode.gain.linearRampToValueAtTime(this.masterVolume * 0.2, currentTime + duration * 0.7); // Sustain
+          gainNode.gain.linearRampToValueAtTime(0, currentTime + duration); // Gentle release
+          
+          // Start and stop
+          oscillator.start(currentTime);
+          oscillator.stop(currentTime + duration);
+        }
+      }, note.delay * 1000);
+    });
   }
 
   init() {
@@ -671,9 +725,12 @@ class Game {
     const feedback = this.elements.feedback;
     feedback.textContent = this.levelConfig.name;
     feedback.className = "feedback";
-    feedback.style.color = "#27ae60";
-    feedback.style.fontSize = "28px";
+    feedback.style.color = "#00e676";
+    feedback.style.fontSize = "32px";
     feedback.style.opacity = "1";
+
+    // Play the harmonic progression sound effect
+    this.playLevelStartSound();
 
     setTimeout(() => {
       feedback.style.opacity = "0";
