@@ -9,7 +9,7 @@ class Game {
     this.showingWarning = false;
 
     // Level system
-    this.currentLevel = 3;
+    this.currentLevel = 0;
     this.levels = [
       {
         id: 1,
@@ -91,7 +91,8 @@ class Game {
     this.targetPosition = 80; // bottom: 80px from CSS
     this.laneHeight = 400;
 
-    this.plankDecayRate = 6; // 6% per second
+    // Miss-based decay system instead of continuous decay
+    this.plankMissPenalty = 20; // 20% penalty for missing a left-hand note
     this.plankGainPerfect = 25;
     this.plankGainOkay = 12; // new middle tier
     this.moveGainPerfect = 35;
@@ -101,9 +102,8 @@ class Game {
     this.leftBeats = [];
     this.rightBeats = [];
     this.startTime = Date.now();
-    this.lastDecayTime = this.startTime;
     this.levelStartTime = this.startTime;
-    this.graceTime = 6000; // 6 second grace period - 4s for first circle + 2s buffer
+    this.graceTime = 5000; // 5 second grace period - 4s for first circle + 1s buffer
 
     this.elements = {
       scoreValue: document.getElementById("score-value"),
@@ -397,6 +397,8 @@ class Game {
         this.combo++;
         this.flashTarget("left", "okay");
       } else {
+        // Apply miss penalty to gate/plank
+        this.plankPercent = Math.max(0, this.plankPercent - this.plankMissPenalty);
         this.combo = 0;
         this.flashTarget("left", "miss");
       }
@@ -596,21 +598,10 @@ class Game {
     }, 6000);
   }
 
-  updatePlankDecay() {
-    const currentTime = Date.now();
-    const deltaTime = (currentTime - this.lastDecayTime) / 1000;
-    this.lastDecayTime = currentTime;
-
-    // Only start decay after grace period
-    if (currentTime - this.startTime > this.graceTime) {
-      this.plankPercent = Math.max(
-        0,
-        this.plankPercent - this.plankDecayRate * deltaTime
-      );
-    }
-
+  checkPlankStatus() {
+    // Check if gate has dropped too low (game over condition)
     if (this.plankPercent <= 0) {
-      this.gameOver(false);
+      this.gameOver(false, "Gate collapsed!");
     }
 
     // Lock right lane if plank drops below threshold
@@ -656,7 +647,6 @@ class Game {
     this.rightBeats = [];
     this.levelStartTime = Date.now();
     this.startTime = this.levelStartTime;
-    this.lastDecayTime = this.levelStartTime;
 
     // Clear existing notes
     this.elements.leftNotes.innerHTML = "";
@@ -717,7 +707,6 @@ class Game {
     this.beatInterval = this.levelConfig.beatInterval;
 
     this.startTime = Date.now();
-    this.lastDecayTime = this.startTime;
     this.levelStartTime = this.startTime;
 
     this.leftBeats = [];
@@ -822,7 +811,7 @@ class Game {
 
   gameLoop() {
     if (this.gameState === "playing") {
-      this.updatePlankDecay();
+      this.checkPlankStatus();
       this.spawnVisualNotes();
       this.checkMissedBeats();
       this.checkLevelTimeout();
