@@ -334,6 +334,32 @@ class Game {
         this.restart();
       }
     });
+    
+    // Button event listeners
+    const restartBtn = document.getElementById('restart-btn');
+    const continueBtn = document.getElementById('continue-btn');
+    
+    if (restartBtn) {
+      restartBtn.addEventListener('click', () => {
+        // Resume audio context on first user interaction
+        if (this.audioContext && this.audioContext.state === "suspended") {
+          this.audioContext.resume();
+        }
+        this.restart();
+      });
+    }
+    
+    if (continueBtn) {
+      continueBtn.addEventListener('click', () => {
+        // Resume audio context on first user interaction
+        if (this.audioContext && this.audioContext.state === "suspended") {
+          this.audioContext.resume();
+        }
+        if (this.gameState === 'gameOver') {
+          this.restart();
+        }
+      });
+    }
   }
 
   handleHit(lane, pressedKey) {
